@@ -13,11 +13,12 @@ st.set_page_config(
     layout="centered"
 )
 
-# ---------------- LOAD FILES ----------------
-model = load_model("model/nifty_lstm_model.h5")
-scaler = pickle.load(open("model/scaler.pkl","rb"))
+# ---------------- LOAD MODEL ----------------
+model = load_model("nifty_lstm_model.h5")
+scaler = pickle.load(open("scaler.pkl","rb"))
 
-df = pd.read_excel("data/NIFTY_50_historical_data.xlsx")
+# ---------------- LOAD DATA ----------------
+df = pd.read_excel("NIFTY_50_historical_data_Daily_5_Years.xlsx")
 df = df.sort_values("Date")
 
 close_prices = df['Close'].values.reshape(-1,1)
@@ -38,7 +39,7 @@ if predict_btn:
     today = datetime.date.today()
     days_ahead = (future_date - today).days
 
-    if days_ahead == 0:
+    if days_ahead <= 0:
         st.warning("Please select future date")
     else:
 
@@ -46,7 +47,6 @@ if predict_btn:
         last_60_scaled = scaler.transform(last_60)
 
         temp_input = list(last_60_scaled.flatten())
-
         preds = []
 
         for i in range(days_ahead):
@@ -56,7 +56,6 @@ if predict_btn:
 
             pred = model.predict(x_input, verbose=0)
             temp_input.append(pred[0][0])
-
             preds.append(pred[0][0])
 
         preds = scaler.inverse_transform(
@@ -64,29 +63,26 @@ if predict_btn:
         )
 
         predicted_price = preds[-1][0]
-
         last_close = close_prices[-1][0]
 
         change = predicted_price - last_close
         pct_change = (change / last_close) * 100
 
-        # ---------- OUTPUT ----------
-        st.success(f"Predicted NIFTY Value on {future_date} : {predicted_price:.2f}")
+        st.success(f"Predicted NIFTY on {future_date} : {predicted_price:.2f}")
 
         if change > 0:
             st.info(f"📈 Bullish Trend Expected (+{pct_change:.2f}%)")
         else:
             st.info(f"📉 Bearish Trend Expected ({pct_change:.2f}%)")
 
-        # ---------- CHART ----------
-        st.subheader("Prediction Chart")
+        # -------- Chart --------
+        st.subheader("Forecast Chart")
 
         hist = close_prices[-60:].flatten()
-
         chart_values = list(hist) + list(preds.flatten())
 
         plt.figure(figsize=(10,4))
         plt.plot(chart_values)
         plt.axvline(x=59, color='red')
-        plt.title("Last 60 Days + Future Prediction")
+        plt.title("Last 60 Days + Forecast")
         st.pyplot(plt)
