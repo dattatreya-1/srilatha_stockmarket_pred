@@ -2,29 +2,20 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
-from tensorflow.keras.models import load_model
 import datetime
 import matplotlib.pyplot as plt
 
-# ---------------- CONFIG ----------------
-st.set_page_config(
-    page_title="NIFTY AI Predictor",
-    page_icon="📈",
-    layout="centered"
-)
-
 # ---------------- LOAD MODEL ----------------
-model = load_model("nifty_lstm_model.h5")
-scaler = pickle.load(open("scaler.pkl","rb"))
+model = pickle.load(open("nifty_xgb.pkl","rb"))
 
 # ---------------- LOAD DATA ----------------
 df = pd.read_excel("NIFTY_50_historical_data_Daily_5_Years.xlsx")
 df = df.sort_values("Date")
 
-close_prices = df['Close'].values.reshape(-1,1)
+close_prices = df['Close'].values
 
 # ---------------- UI ----------------
-st.title("📈 NIFTY-50 AI Prediction System")
+st.title("📈 NIFTY AI Prediction System")
 
 future_date = st.date_input(
     "Select Future Prediction Date",
@@ -40,49 +31,41 @@ if predict_btn:
     days_ahead = (future_date - today).days
 
     if days_ahead <= 0:
-        st.warning("Please select future date")
+        st.warning("Select valid future date")
     else:
 
-        last_60 = close_prices[-60:]
-        last_60_scaled = scaler.transform(last_60)
-
-        temp_input = list(last_60_scaled.flatten())
+        lookback = 10
+        temp = list(close_prices[-lookback:])
         preds = []
 
         for i in range(days_ahead):
 
-            x_input = np.array(temp_input[-60:])
-            x_input = x_input.reshape(1,60,1)
+            x_input = np.array(temp[-lookback:]).reshape(1,-1)
+            pred = model.predict(x_input)[0]
 
-            pred = model.predict(x_input, verbose=0)
-            temp_input.append(pred[0][0])
-            preds.append(pred[0][0])
+            temp.append(pred)
+            preds.append(pred)
 
-        preds = scaler.inverse_transform(
-            np.array(preds).reshape(-1,1)
-        )
+        predicted_price = preds[-1]
 
-        predicted_price = preds[-1][0]
-        last_close = close_prices[-1][0]
-
+        last_close = close_prices[-1]
         change = predicted_price - last_close
-        pct_change = (change / last_close) * 100
+        pct = (change/last_close)*100
 
         st.success(f"Predicted NIFTY on {future_date} : {predicted_price:.2f}")
 
         if change > 0:
-            st.info(f"📈 Bullish Trend Expected (+{pct_change:.2f}%)")
+            st.info(f"📈 Bullish Trend Expected (+{pct:.2f}%)")
         else:
-            st.info(f"📉 Bearish Trend Expected ({pct_change:.2f}%)")
+            st.info(f"📉 Bearish Trend Expected ({pct:.2f}%)")
 
-        # -------- Chart --------
+        # ---------- Chart ----------
         st.subheader("Forecast Chart")
 
-        hist = close_prices[-60:].flatten()
-        chart_values = list(hist) + list(preds.flatten())
+        hist = close_prices[-60:]
+        chart_vals = list(hist) + preds
 
         plt.figure(figsize=(10,4))
-        plt.plot(chart_values)
+        plt.plot(chart_vals)
         plt.axvline(x=59, color='red')
-        plt.title("Last 60 Days + Forecast")
         st.pyplot(plt)
