@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 model = pickle.load(open("nifty_xgb.pkl","rb"))
 
 # ---------------- LOAD DATA ----------------
-df = pd.read_excel("NIFTY_50_historical_data_Daily_5_Years.xlsx")
+df = pd.read_excel("NIFTY 50_historical_data_Daily_5_Years.xlsx")
 df = df.sort_values("Date")
 
 close_prices = df['Close'].values
